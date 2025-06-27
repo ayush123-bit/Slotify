@@ -30,7 +30,7 @@ def get_calendar_service():
                 },
                 scopes=SCOPES
             )
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_console()
 
         # Save token for reuse
         with open('token.json', 'w') as token:
