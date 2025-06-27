@@ -2,12 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from google_auth_oauthlib.flow import Flow
-from agent import run_agent
+from gcal import set_user_token, get_calendar_service, check_availability, book_slot
+from agent import extract_datetime_from_text
 import os
+import uuid
 
 app = FastAPI()
 
-# 🔓 CORS for frontend
+# Allow frontend (e.g., Streamlit) to talk to this backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,19 +17,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Root endpoint (health check for Render)
-@app.get("/")
-def home():
-    return {"message": "✅ TailorTalk API is running!"}
-
-# 🔐 OAuth credentials from environment
+# Read secrets from environment variables
 client_id = os.getenv("GOOGLE_CLIENT_ID")
 client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
 redirect_uri = os.getenv("OAUTH_REDIRECT_URI")
 
-# 🌐 Authorize user with Google Calendar
+@app.get("/")
+def home():
+    return {"message": "✅ TailorTalk API is running."}
+
 @app.get("/authorize")
 def authorize():
+    # Generate temporary session ID for the user (in real use, use OAuth state/session)
+    user_id = str(uuid.uuid4())
     flow = Flow.from_client_config(
         {
             "web": {
@@ -35,47 +37,66 @@ def authorize():
                 "client_secret": client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [redirect_uri],
+                "redirect_uris": [redirect_uri]
             }
         },
         scopes=["https://www.googleapis.com/auth/calendar"],
         redirect_uri=redirect_uri
     )
-    auth_url, _ = flow.authorization_url(prompt="consent")
-    return RedirectResponse(auth_url)
+    auth_url, state = flow.authorization_url(prompt="consent", include_granted_scopes="true")
+    return RedirectResponse(f"{auth_url}&state={user_id}")
 
-# ✅ Callback handler after user logs in
 @app.get("/oauth2callback")
 async def oauth2callback(request: Request):
-    try:
-        flow = Flow.from_client_config(
-            {
-                "web": {
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [redirect_uri],
-                }
-            },
-            scopes=["https://www.googleapis.com/auth/calendar"],
-            redirect_uri=redirect_uri
-        )
-        flow.fetch_token(authorization_response=str(request.url))
-        credentials = flow.credentials
+    full_url = str(request.url)
+    user_id = request.query_params.get("state")
 
-        # ✅ Save credentials to token.json (for single-user mode)
-        with open("token.json", "w") as token_file:
-            token_file.write(credentials.to_json())
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [redirect_uri]
+            }
+        },
+        scopes=["https://www.googleapis.com/auth/calendar"],
+        redirect_uri=redirect_uri
+    )
+    flow.fetch_token(authorization_response=full_url)
 
-        return {"message": "✅ Authorized. You can now book slots!"}
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
+    # Save token in memory (for production, use DB/session storage)
+    credentials = flow.credentials
+    set_user_token(user_id, credentials.to_json())
 
-# 🤖 Conversational Booking Endpoint
+    return {"message": "✅ Authorization successful. You can now book slots.", "user_id": user_id}
+
 @app.post("/chat")
 async def chat(request: Request):
-    data = await request.json()
-    user_input = data.get("user_input", "")
-    response = run_agent(user_input)
-    return {"response": response}
+    try:
+        data = await request.json()
+        user_input = data.get("user_input", "")
+        user_id = data.get("user_id")  # required to retrieve credentials
+
+        if not user_id:
+            return {"response": "❌ Please authorize first using /authorize."}
+
+        start_iso, end_iso = extract_datetime_from_text(user_input)
+        if not start_iso or not end_iso:
+            return {"response": "❌ Couldn’t parse the datetime. Try: 'Book at 5 PM tomorrow'."}
+
+        service = get_calendar_service(user_id)
+
+        if check_availability(service, start_iso, end_iso):
+            summary = "TailorTalk Booking"
+            if "for" in user_input.lower():
+                summary = user_input.split("for")[-1].strip()
+            event = book_slot(service, summary, start_iso, end_iso)
+            return {"response": f"✅ Your slot is booked for **{summary}** on **{start_iso}**\n📅 [View]({event['htmlLink']})"}
+        else:
+            return {"response": "❌ The slot is already booked. Please choose another time."}
+
+    except Exception as e:
+        print("❌ Backend error:", e)
+        return {"response": f"🚨 Unexpected error: {str(e)}"}
