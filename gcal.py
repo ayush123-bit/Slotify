@@ -1,42 +1,36 @@
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
 from datetime import datetime
 import os
+import json
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_calendar_service():
-    creds = None
+    """
+    Returns an authenticated Google Calendar service.
+    Requires token.json to exist (created after OAuth via /oauth2callback).
+    """
+    if not os.path.exists("token.json"):
+        raise Exception("🔐 Not authorized. Please visit /authorize to login.")
 
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    try:
+        with open("token.json", "r") as f:
+            creds_data = json.load(f)
+        creds = Credentials.from_authorized_user_info(info=creds_data, scopes=SCOPES)
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+        if not creds.valid and creds.expired and creds.refresh_token:
+            from google.auth.transport.requests import Request
             creds.refresh(Request())
-        else:
-            # Load from environment variables instead of credentials.json
-            flow = InstalledAppFlow.from_client_config(
-                {
-                    "installed": {
-                        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-                        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "redirect_uris": [os.getenv("OAUTH_REDIRECT_URI")]
-                    }
-                },
-                scopes=SCOPES
-            )
-            creds = flow.run_console()
+            with open("token.json", "w") as token:
+                token.write(creds.to_json())
 
-        # Save token for reuse
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+        service = build("calendar", "v3", credentials=creds)
+        return service
 
-    return build('calendar', 'v3', credentials=creds)
+    except Exception as e:
+        raise Exception(f"❌ Failed to load Google credentials: {e}")
+
 
 def check_availability(service, start_time, end_time):
     try:
@@ -56,6 +50,7 @@ def check_availability(service, start_time, end_time):
     except Exception as e:
         print("❌ Error while checking availability:", e)
         return False
+
 
 def book_slot(service, summary, start_time, end_time):
     event = {
