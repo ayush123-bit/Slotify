@@ -16,7 +16,7 @@ if submitted and user_input:
     st.session_state.messages.append(("🧑 You", user_input))
 
     try:
-        res = requests.post("http://localhost:8000/chat", json={"user_input": user_input})
+        res = requests.post("https://slotify-zmfm.onrender.com/chat", json={"user_input": user_input})
         response_data = res.json()
         reply = response_data.get("response", "⚠️ No 'response' field.")
     except Exception as e:
