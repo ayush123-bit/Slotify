@@ -2,13 +2,14 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
-import os.path
 from datetime import datetime
+import os
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_calendar_service():
     creds = None
+
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 
@@ -16,13 +17,26 @@ def get_calendar_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            # Load from environment variables instead of credentials.json
+            flow = InstalledAppFlow.from_client_config(
+                {
+                    "installed": {
+                        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+                        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "redirect_uris": [os.getenv("OAUTH_REDIRECT_URI")]
+                    }
+                },
+                scopes=SCOPES
+            )
             creds = flow.run_local_server(port=0)
+
+        # Save token for reuse
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
 
-    service = build('calendar', 'v3', credentials=creds)
-    return service
+    return build('calendar', 'v3', credentials=creds)
 
 def check_availability(service, start_time, end_time):
     try:
@@ -38,7 +52,6 @@ def check_availability(service, start_time, end_time):
 
         events = events_result.get('items', [])
         print(f"📅 Found {len(events)} events in that range.")
-
         return len(events) == 0
     except Exception as e:
         print("❌ Error while checking availability:", e)
