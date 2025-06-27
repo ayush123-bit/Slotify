@@ -8,18 +8,15 @@ IST = timezone('Asia/Kolkata')
 
 def extract_datetime_from_text(text):
     """
-    Extracts a datetime object from user input using regex and dateparser.
-    Handles special phrases like 'day after tomorrow'.
-    Returns start and end ISO-formatted datetime strings in IST.
+    Extract datetime object from user input using regex and dateparser.
+    Handles phrases like 'day after tomorrow'.
     """
     now = datetime.now(IST)
 
-    # Handle specific human phrases manually
     if "day after tomorrow" in text.lower():
         future_date = (now + timedelta(days=2)).strftime("%d %B")
         text = re.sub(r"day after tomorrow", future_date, text, flags=re.IGNORECASE)
 
-    # Strong regex to extract common natural date-time patterns
     time_pattern = r"((?:on\s+)?(?:\d{1,2}(?:st|nd|rd|th)?\s+\w+|\w+\s+\d{1,2})(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)?|today|tomorrow(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)?)"
     match = re.search(time_pattern, text, re.IGNORECASE)
     time_text = match.group().strip() if match else text.strip()
@@ -39,11 +36,9 @@ def extract_datetime_from_text(text):
         print("❌ Failed to parse datetime.")
         return None, None
 
-    # Fix year if parsed weirdly
-    if parsed_dt.year is None or parsed_dt.year < now.year:
+    if parsed_dt.year < now.year:
         parsed_dt = parsed_dt.replace(year=now.year)
 
-    # Round to hour
     start_time = parsed_dt.replace(second=0, microsecond=0)
     end_time = start_time + timedelta(hours=1)
 
@@ -52,30 +47,36 @@ def extract_datetime_from_text(text):
 
     return start_time.isoformat(), end_time.isoformat()
 
-def run_agent(user_input):
+def extract_reason(text):
     """
-    Parses user input, checks calendar availability, and books the slot.
+    Extracts booking reason based on 'for <something>' pattern.
+    """
+    match = re.search(r"for (.+)", text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip().capitalize()
+    return "TailorTalk Appointment"
+
+def run_agent(user_input, token_dict):
+    """
+    Parses input, checks availability, and books slot using user token.
     """
     start_iso, end_iso = extract_datetime_from_text(user_input)
+    reason = extract_reason(user_input)
 
     if not start_iso or not end_iso:
-        return (
-            "❌ Sorry, I couldn’t understand your request.\n"
-            "Try saying: 'Book a meeting tomorrow at 4 PM', '4 July at 1 PM', or 'day after tomorrow at 6 PM'."
-        )
+        return "❌ Sorry, I couldn’t understand your request. Try saying: 'Book a meeting on 6 July at 7 PM for Demo'."
 
     try:
-        service = get_calendar_service()
-
+        service = get_calendar_service(token_dict)
         print("📅 Checking calendar availability...")
+
         if check_availability(service, start_iso, end_iso):
             print("✅ Slot is free. Booking now...")
-            event = book_slot(service, "TailorTalk Appointment", start_iso, end_iso)
-            print("📌 Event created:", event.get('htmlLink'))
-            return f"✅ Your meeting is booked!\n\n📅 [View in Calendar]({event['htmlLink']})"
+            event = book_slot(service, reason, start_iso, end_iso)
+            return f"✅ Your slot is booked for **{reason}** on **{start_iso}**.\n📅 [View in Calendar]({event['htmlLink']})"
         else:
             print("⚠️ Slot is already booked.")
-            return "⚠️ That time slot is already booked. Please try a different time."
+            return "⚠️ The slot is not empty. Please try another time."
     except Exception as e:
         print("❌ Backend error:", e)
         return f"🚨 An unexpected error occurred: {str(e)}"
