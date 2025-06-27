@@ -2,35 +2,22 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime
 import os
-import json
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-def get_calendar_service():
-    """
-    Returns an authenticated Google Calendar service.
-    Requires token.json to exist (created after OAuth via /oauth2callback).
-    """
-    if not os.path.exists("token.json"):
+# For demo purposes: memory storage (replace with DB/session in production)
+user_token_store = {}
+
+def set_user_token(user_id, credentials_dict):
+    user_token_store[user_id] = credentials_dict
+
+def get_calendar_service(user_id):
+    if user_id not in user_token_store:
         raise Exception("🔐 Not authorized. Please visit /authorize to login.")
 
-    try:
-        with open("token.json", "r") as f:
-            creds_data = json.load(f)
-        creds = Credentials.from_authorized_user_info(info=creds_data, scopes=SCOPES)
-
-        if not creds.valid and creds.expired and creds.refresh_token:
-            from google.auth.transport.requests import Request
-            creds.refresh(Request())
-            with open("token.json", "w") as token:
-                token.write(creds.to_json())
-
-        service = build("calendar", "v3", credentials=creds)
-        return service
-
-    except Exception as e:
-        raise Exception(f"❌ Failed to load Google credentials: {e}")
-
+    creds = Credentials.from_authorized_user_info(user_token_store[user_id], SCOPES)
+    service = build('calendar', 'v3', credentials=creds)
+    return service
 
 def check_availability(service, start_time, end_time):
     try:
@@ -51,18 +38,11 @@ def check_availability(service, start_time, end_time):
         print("❌ Error while checking availability:", e)
         return False
 
-
 def book_slot(service, summary, start_time, end_time):
     event = {
         'summary': summary,
-        'start': {
-            'dateTime': start_time,
-            'timeZone': 'Asia/Kolkata'
-        },
-        'end': {
-            'dateTime': end_time,
-            'timeZone': 'Asia/Kolkata'
-        }
+        'start': {'dateTime': start_time, 'timeZone': 'Asia/Kolkata'},
+        'end': {'dateTime': end_time, 'timeZone': 'Asia/Kolkata'}
     }
 
     try:
