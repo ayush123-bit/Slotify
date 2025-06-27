@@ -64,7 +64,10 @@ async def oauth2callback(request: Request):
         flow.fetch_token(authorization_response=str(request.url))
         credentials = flow.credentials
 
-        # 🚨 Save credentials per user securely in DB/session in production
+        # ✅ Save credentials to token.json (for single-user mode)
+        with open("token.json", "w") as token_file:
+            token_file.write(credentials.to_json())
+
         return {"message": "✅ Authorized. You can now book slots!"}
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
