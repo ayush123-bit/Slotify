@@ -1,21 +1,29 @@
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+import os.path
 from datetime import datetime
-import os
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-# ✅ Use token from session/env (NOT local file)
-def get_calendar_service(token_dict: dict):
-    try:
-        creds = Credentials.from_authorized_user_info(token_dict, SCOPES)
-        service = build('calendar', 'v3', credentials=creds)
-        return service
-    except Exception as e:
-        print("❌ Failed to create calendar service:", e)
-        return None
+def get_calendar_service():
+    creds = None
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 
-# ✅ Check slot availability
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    service = build('calendar', 'v3', credentials=creds)
+    return service
+
 def check_availability(service, start_time, end_time):
     try:
         print("🔎 Checking availability from:", start_time, "to", end_time)
@@ -30,12 +38,12 @@ def check_availability(service, start_time, end_time):
 
         events = events_result.get('items', [])
         print(f"📅 Found {len(events)} events in that range.")
+
         return len(events) == 0
     except Exception as e:
         print("❌ Error while checking availability:", e)
         return False
 
-# ✅ Book calendar slot
 def book_slot(service, summary, start_time, end_time):
     event = {
         'summary': summary,
