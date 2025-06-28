@@ -62,3 +62,4 @@ PyYAML
 
 # DNS for external API calls
 dnspython
+google_auth_oauthlib
