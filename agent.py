@@ -28,59 +28,49 @@ TIME_MAPPINGS = {
 }
 
 # Enhanced conversation handling
+# Add to your existing CONVERSATION_HANDLERS
 CONVERSATION_HANDLERS = {
-    "greetings": {
-        "patterns": ["hi", "hello", "hey", "hola", "greetings", "howdy",
-                   "good morning", "good afternoon", "good evening", "good night"],
+    # ... existing handlers ...
+    "how_are_you": {
+        "patterns": ["how are you", "how's it going", "how do you do"],
         "responses": [
-            "Hello! How can I assist with your schedule today?",
-            "Hi there! Ready to help with your calendar needs.",
-            "Greetings! What would you like to schedule?"
+            "I'm just a virtual assistant, but I'm functioning perfectly! How can I help you today?",
+            "Doing well, thanks for asking! Ready to help with your schedule.",
+            "I'm great! Let me know how I can assist with your calendar."
         ]
     },
-    "thanks": {
-        "patterns": ["thanks", "thank you", "appreciate it"],
-        "responses": [
-            "You're welcome! Let me know if you need anything else.",
-            "Happy to help! What else can I do for you?",
-            "My pleasure! Feel free to ask for more assistance."
-        ]
-    },
-    "help": {
-        "patterns": ["help", "what can you do", "assistance"],
-        "response": """
-I'm your smart scheduling assistant. Here's what I can do:
-
-📅 Schedule appointments: 
-   "Book a meeting tomorrow at 2pm"
-   "Schedule a call next Tuesday afternoon"
-
-🗓️ Check availability:
-   "Am I free on Friday at 3pm?"
-   "What's my schedule like tomorrow?"
-
-💡 I understand natural language:
-   "Set up a doctor's visit next week"
-   "Do I have anything scheduled for Monday morning?"
-"""
-    },
-    "farewell": {
-        "patterns": ["bye", "goodbye", "see you", "later"],
-        "responses": [
-            "Goodbye! Have a great day!",
-            "See you later! Don't hesitate to come back if you need help.",
-            "Take care! Come back anytime you need scheduling help."
-        ]
+    "unknown": {
+        "patterns": [],
+        "response": "I didn't quite understand that. I'm great at scheduling - try something like 'Book a meeting tomorrow' or say 'help' for options."
     }
 }
 
 def is_conversational(text):
-    """Check if the input is conversational rather than scheduling-related"""
     text_lower = text.lower().strip()
+    
+    # Check for empty or very short inputs
+    if len(text_lower) < 2:
+        return True
+        
+    # Check against all known patterns
     for handler in CONVERSATION_HANDLERS.values():
-        if any(pattern in text_lower for pattern in handler["patterns"]):
+        if any(pattern in text_lower for pattern in handler.get("patterns", [])):
             return True
+            
     return False
+
+def handle_conversation(text):
+    text_lower = text.lower().strip()
+    
+    # Check all handlers except 'unknown' first
+    for handler_type, handler in CONVERSATION_HANDLERS.items():
+        if handler_type != "unknown" and any(pattern in text_lower for pattern in handler["patterns"]):
+            if "response" in handler:
+                return handler["response"]
+            return random.choice(handler["responses"])
+    
+    # Fallback to unknown handler
+    return CONVERSATION_HANDLERS["unknown"]["response"]
 
 def handle_conversation(text):
     """Generate appropriate responses for conversational inputs"""
