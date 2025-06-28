@@ -65,7 +65,7 @@ GOOGLE_API_KEY=your_gemini_key_here
 
 ### 1. Clone the repo
 
-git clone https://github.com/your-username/tailortalk.git  
+git clone https://github.com/your-username/tailortalk.git
 cd tailortalk
 
 ### 2. Install dependencies
