@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from datetime import datetime
 
 # Set up the page
 st.set_page_config(page_title="TailorTalk Booking Assistant", layout="wide")
@@ -42,20 +43,38 @@ if submitted and user_input:
     # Add user message to chat
     st.session_state.messages.append(("User", user_input))
     
-    # Get bot response
-    try:
-        response = requests.post(
-            "https://slotify-zmfm.onrender.com/chat",
-            json={"user_input": user_input},
-            timeout=10  # Add timeout for better UX
-        )
-        response.raise_for_status()  # Raise exception for bad status codes
-        response_data = response.json()
-        reply = response_data.get("response", "I couldn't process that request. Please try again.")
-    except requests.exceptions.RequestException as e:
-        reply = f"Sorry, I'm having trouble connecting to the service. Please try again later."
-    except Exception as e:
-        reply = "An unexpected error occurred. Please try again."
+    # Show loading indicator while processing
+    with st.spinner("Processing your request..."):
+        try:
+            response = requests.post(
+                "https://slotify-zmfm.onrender.com/chat",
+                json={"user_input": user_input},
+                timeout=10
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            reply = response_data.get("response", "I couldn't process that request. Please try again.")
+            
+            # Special handling for booking responses
+            if "already booked" in reply.lower():
+                # Extract suggested times from response if available
+                suggested_times = []
+                if "suggested_times" in response_data:
+                    suggested_times = response_data["suggested_times"]
+                
+                # Format the response with suggestions
+                reply = "That time slot is already booked."
+                if suggested_times:
+                    reply += "\n\nHere are some available times:\n"
+                    for time in suggested_times:
+                        dt = datetime.fromisoformat(time)
+                        reply += f"- {dt.strftime('%A, %B %d at %I:%M %p')}\n"
+                    reply += "\nWould you like to book one of these instead?"
+                
+        except requests.exceptions.RequestException as e:
+            reply = "Sorry, I'm having trouble connecting to the service. Please try again later."
+        except Exception as e:
+            reply = "An unexpected error occurred. Please try again."
 
     # Add assistant response to chat
     st.session_state.messages.append(("Assistant", reply))
@@ -72,7 +91,12 @@ with st.sidebar:
     - **General help**: Type "help" for assistance
     """)
     st.markdown("---")
-    st.markdown("Examples:")
+    st.markdown("**Common Scenarios:**")
+    st.markdown("- When a slot is booked, I'll suggest alternatives")
+    st.markdown("- I can handle time ranges like '3-5pm'")
+    st.markdown("- I understand relative dates like 'next Tuesday'")
+    st.markdown("---")
+    st.markdown("**Examples:**")
     st.markdown("- *Team meeting next Tuesday at 11am*")
     st.markdown("- *Doctor appointment this Friday afternoon*")
     st.markdown("- *What's my schedule looking like tomorrow?*")
