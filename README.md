@@ -1,23 +1,23 @@
-# 🧠 TailorTalk – AI Calendar Assistant 🤖📅
+# 🧠 Slotify – AI Calendar Assistant 🤖📅
 
-TailorTalk is an intelligent calendar booking assistant powered by Gemini and Google Calendar APIs. It allows users to book or check meeting availability using natural language like:
+Slotify is an intelligent calendar scheduling agent powered by **Gemini** and **Google Calendar APIs**. It allows users to book or check meeting availability using natural language like:
 
 "Book a meeting on 22 July at 7 PM for Birthday Party"  
-"Do I have any free time next Friday?"
+"Do I have any free time next Friday?"  
+"Schedule a call between 3–5 PM tomorrow for a project discussion"
 
-The app understands vague phrases like “tomorrow afternoon” or “between 3–5 PM”, parses them using Gemini, checks your Google Calendar for conflicts, and books the event if available.
+Slotify understands vague time expressions like “tomorrow evening” or “next week”, uses Gemini to extract intent, and automatically checks and books slots via Google Calendar.
 
 ---
 
 ## 🚀 Features
 
-- Understands natural language time/date expressions
-- Uses Gemini (Google Generative AI) to extract intent, date, time, and reason
-- Checks real-time Google Calendar availability
-- Auto-books confirmed time slots
-- Chat-based frontend via Streamlit
-- FastAPI backend that connects Gemini + Google Calendar
-- Securely deployed using Render and Google Secrets
+- 💬 Chat-style natural language booking
+- 🤖 Gemini-powered intent extraction (date, time, reason)
+- 🧠 Handles vague phrases like "tomorrow", "evening", "3-5 PM"
+- 📅 Google Calendar slot checking
+- 📤 Automatic calendar booking
+- 🔒 Secure deployment with secret files on Render
 
 ---
 
@@ -25,7 +25,7 @@ The app understands vague phrases like “tomorrow afternoon” or “between 3�
 
 Frontend: Streamlit  
 Backend: FastAPI  
-Agent: Gemini via google-generativeai  
+AI: Gemini (Google Generative AI API)  
 Calendar API: Google Calendar  
 Deployment: Streamlit Cloud (frontend) + Render (backend)
 
@@ -33,50 +33,50 @@ Deployment: Streamlit Cloud (frontend) + Render (backend)
 
 ## 📁 Project Structure
 
-tailortalk/  
-├── app.py                # Streamlit chat frontend  
-├── main.py               # FastAPI backend routes  
-├── agent.py              # Gemini + calendar agent logic  
-├── gcal.py               # Google Calendar integration  
+Slotify/  
+├── app.py                → Streamlit frontend  
+├── main.py               → FastAPI backend routes  
+├── agent.py              → Gemini + fallback date parser  
+├── gcal.py               → Google Calendar integration  
 ├── requirements.txt  
-└── .env / secrets        # API keys, credentials.json, token.json
+└── /secrets/             → credentials.json, token.json (on Render)
 
 ---
 
-## 🔐 Setup: API Keys & Credentials
+## 🔐 Setup
 
-1. Google Cloud Setup  
-   - Go to https://console.cloud.google.com/  
-   - Enable the Google Calendar API  
-   - Create OAuth 2.0 Client ID credentials  
-   - Download the file as `credentials.json`
+1. **Google Cloud Console**
+   - Enable Google Calendar API
+   - Create OAuth 2.0 credentials
+   - Download `credentials.json`
 
-2. Gemini API Key  
-   - Get it from https://makersuite.google.com/app/apikey  
-   - Store it in `.env`:
+2. **Gemini API Key**
+   - Get it from https://makersuite.google.com/app/apikey
+   - Add to `.env` as:
 
-GOOGLE_API_KEY=your_gemini_key_here
+GOOGLE_API_KEY=your_gemini_key
 
-3. Run locally once to trigger auth flow and generate `token.json`.
+3. **Run Locally Once**  
+   To generate `token.json` via browser auth
 
 ---
 
 ## 💻 Running Locally
 
-### 1. Clone the repo
+Clone the repository:
 
-git clone https://github.com/your-username/tailortalk.git
-cd tailortalk
+git clone https://github.com/ayush123-bit/Slotify.git  
+cd Slotify
 
-### 2. Install dependencies
+Install dependencies:
 
 pip install -r requirements.txt
 
-### 3. Start FastAPI backend
+Start the backend (FastAPI):
 
 uvicorn main:app --reload
 
-### 4. Start Streamlit frontend
+Start the frontend (Streamlit):
 
 streamlit run app.py
 
@@ -84,11 +84,10 @@ streamlit run app.py
 
 ## 🌐 Deployment
 
-### Backend on Render
+### 🔧 Backend: Deployed on Render
 
-- Push to GitHub  
-- Create a Web Service  
-- Use the following `run.py`:
+- Live URL: https://slotify-zmfm.onrender.com  
+- `main.py` must bind to the dynamic port:
 
 import os  
 import uvicorn  
@@ -96,48 +95,47 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))  
     uvicorn.run("main:app", host="0.0.0.0", port=port)
 
-- Add Secret Files:
+- Add Secret Files in Render:
   - `/etc/secrets/credentials.json`
   - `/etc/secrets/token.json`
 
 ---
 
-### Frontend on Streamlit Cloud
+### 💬 Frontend: Deployed on Streamlit Cloud
 
-- Push frontend (`app.py`, `requirements.txt`) to GitHub  
-- Go to https://streamlit.io/cloud  
-- Deploy the app  
-- Update backend endpoint in `app.py`:
+1. Push frontend (`app.py`, `requirements.txt`) to a repo  
+2. Go to https://streamlit.io/cloud  
+3. Deploy and connect to backend
 
-BACKEND_URL = "https://your-backend.onrender.com/chat"
+Set your backend URL in `app.py`:
+
+BACKEND_URL = "https://slotify-zmfm.onrender.com/chat"
 
 ---
 
 ## 🧠 How It Works
 
-1. User sends:
-
-"Book a meeting tomorrow at 3 PM for team sync"
+1. User types:  
+"Book a meeting tomorrow at 6 PM for demo"
 
 2. Gemini returns:
 
 {  
   "intent": "book",  
   "date": "2025-07-20",  
-  "time": "15:00",  
-  "reason": "team sync"  
+  "time": "18:00",  
+  "reason": "demo"  
 }
 
-3. Google Calendar API checks slot.  
-4. If free, it books the event.  
-5. Chatbot returns:
+3. Calendar checked → slot is free → booked  
+4. Response shown in Streamlit:
 
-✅ Your meeting for *team sync* is booked!  
+✅ Your meeting for *demo* is booked!  
 📅 [View in Calendar](https://...)
 
 ---
 
-## 📦 `requirements.txt`
+## 📦 Requirements
 
 fastapi  
 uvicorn  
@@ -155,21 +153,21 @@ requests
 
 ---
 
-## 🧪 API Example
+## 🧪 Test API
 
-curl -X POST https://your-backend.onrender.com/chat \  
+curl -X POST https://slotify-zmfm.onrender.com/chat \  
      -H "Content-Type: application/json" \  
-     -d '{"user_input": "Book a meeting on 22 July at 7 PM for Birthday Party"}'
+     -d '{"user_input": "Book a meeting on 20 July at 7 PM for Birthday Party"}'
 
 ---
 
 ## ✅ Sample Logs
 
-📅 Final start: 2025-07-22T19:00:00+05:30  
-📅 Final end: 2025-07-22T20:00:00+05:30  
-🔎 Checking availability from: 2025-07-22T19:00:00+05:30 to 2025-07-22T20:00:00+05:30  
-📅 Found 0 events in that range.  
-📤 Booking event from: 2025-07-22T19:00:00+05:30 to 2025-07-22T20:00:00+05:30  
+📅 Final start: 2025-07-20T19:00:00+05:30  
+📅 Final end: 2025-07-20T20:00:00+05:30  
+🔎 Checking availability...  
+📅 Found 0 events in that range  
+📤 Booking...  
 ✅ Event created: https://www.google.com/calendar/event?eid=...
 
 ---
@@ -185,8 +183,9 @@ LinkedIn: https://linkedin.com/in/ayush-rai-7109202b6
 
 ## ✅ Project Status
 
-✅ Agent fully functional (Gemini + Fallback)  
-✅ Calendar slot parsing, booking, checking  
-✅ Frontend and backend deployed  
-✅ Streamlit and Render integrated  
-✅ Ready for demo or submission
+✅ Agent working end-to-end  
+✅ Gemini + fallback parsing logic  
+✅ Calendar integration complete  
+✅ Backend hosted on Render  
+✅ Frontend ready for Streamlit  
+✅ Ideal for internship/project submissions
